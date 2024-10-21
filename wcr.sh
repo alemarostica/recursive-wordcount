@@ -19,25 +19,38 @@
 # Display usage info
 usage() {
   printf "Usage: %s [options]\n" "$0"
+  echo "Defaults to only count lines"
   echo "Options:"
   echo "  -h, --help                    Show this help message"
   echo "  -v, --verbose                 Print word count for each file"
   echo "  -e, --ext <ext1> <ext2> ...   The file extensions to count lines"
   echo "  -d, --dir <directory>         The directory to operate in, cwd if absent"
+  echo "  -l, --lines                   Count lines"
+  echo "  -w, --words                   Count words"
+  echo "  -c, --chars                   Count characters"
+  echo "  -b, --bytes                   Count bytes"
   exit 1
 }
 
 # Settings
 verbose=false
+lines=false
+chars=false
+words=false
+bytes=false
 
-# Total counter
+# Counters
 lines_count=0
+words_count=0
 
 # Extensions
 exts=()
 
 # Directory
 dir="$PWD"
+
+# Misc
+mode_args=0
 
 # Input parsing
 while [[ "$#" -gt 0 ]]; do
@@ -47,6 +60,22 @@ while [[ "$#" -gt 0 ]]; do
     ;;
   -v | --verbose)
     verbose=true
+    ;;
+  -l | --lines)
+    lines=true
+    mode_args=$((mode_args + 1))
+    ;;
+  -w | --words)
+    words=true
+    mode_args=$((mode_args + 1))
+    ;;
+  -c | --chars)
+    chars=true
+    mode_args=$((mode_args + 1))
+    ;;
+  -b | --bytes)
+    bytes=true
+    mode_args=$((mode_args + 1))
     ;;
   -e | --ext)
     shift
@@ -80,10 +109,14 @@ while [[ "$#" -gt 0 ]]; do
   shift
 done
 
+if [[ $mode_args == 0 ]]; then
+  lines=true
+fi
+
 echo "Directory: $dir"
 echo -n "Extensions: "
 for item in "${exts[@]}"; do
-  echo -n "$item"
+  echo -n "$item "
 done
 printf "\n"
 
@@ -91,11 +124,31 @@ for ext in "${exts[@]}"; do
   # echo "trying $ext"
   while IFS= read -r file; do
     if [ -f "$file" ] && [[ "$file" == *."$ext" ]]; then
-      lines=$(wc -l <"$file")
-      [[ $verbose == true ]] && printf "File: %s, Lines: %d\n" "$file" "$lines"
-      lines_count=$((lines_count + lines))
+      if $lines; then 
+        lines_c=$(wc -l <"$file")
+        lines_count=$((lines_count + lines_c))
+      fi
+      if $words; then
+        words_c=$(wc -w <"$file")
+        words_count=$((words_count + words_c))
+      fi
+      if $chars; then
+        chars_c=$(wc -c <"$file")
+        chars_count=$((chars_count + chars_c))
+      fi
+      if $bytes; then
+        bytes_c=$(wc --bytes <"$file")
+        bytes_count=$((bytes_count + bytes_c))
+      fi
+      [[ $verbose == true && $lines == true ]] && printf "%s: %d lines\n" "$file" "$lines_count"
+      [[ $verbose == true && $words == true ]] && printf "%s: %d words\n" "$file" "$words_count"
+      [[ $verbose == true && $chars == true ]] && printf "%s: %d chars\n" "$file" "$chars_count"
+      [[ $verbose == true && $bytes == true ]] && printf "%s: %d bytes\n" "$file" "$bytes_count"
     fi
   done < <(find "$dir" -type f)
 done
 
-echo "Total lines: $lines_count"
+[[ $lines == true ]] && echo "Total lines: $lines_count"
+[[ $words == true ]] && echo "Total words: $words_count"
+[[ $chars == true ]] && echo "Total chars: $chars_count"
+[[ $bytes == true ]] && echo "Total bytes: $bytes_count"
