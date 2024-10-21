@@ -18,7 +18,8 @@
 
 # Display usage info
 usage() {
-  printf "Usage: %s [options]\n" "$0"
+  echo "Recursive Word Count"
+  printf "Usage: %s [options] -d <ext1> <ext2> ...\n" "$0"
   echo "Defaults to only count lines"
   echo "Options:"
   echo "  -h, --help                    Show this help message"
@@ -145,8 +146,12 @@ while [[ "$#" -gt 0 ]]; do
   shift
 done
 
-if [[ $mode_args == 0 ]]; then
+if [[ $mode_args -eq 0 ]]; then
   lines=true
+fi
+if [ ${#exts[@]} -eq 0 ]; then
+  echo "No specified extension"
+  exit 1
 fi
 
 echo "Directory: $dir"
