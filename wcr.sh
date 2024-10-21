@@ -32,16 +32,16 @@ usage() {
   exit 1
 }
 
+# Counters
+lines_count=0
+words_count=0
+
 # Settings
 verbose=false
 lines=false
 chars=false
 words=false
 bytes=false
-
-# Counters
-lines_count=0
-words_count=0
 
 # Extensions
 exts=()
@@ -51,6 +51,42 @@ dir="$PWD"
 
 # Misc
 mode_args=0
+
+process_file() {
+  local file="$1"
+  local local_lines_count=0
+  local local_words_count=0
+  local local_chars_count=0
+  local local_bytes_count=0
+
+  if [ -f "$file" ] && [[ "$file" == *."$ext" ]]; then
+    if $lines; then 
+      local_lines_count=$(wc -l <"$file")
+    fi
+    if $words; then
+      local_words_count=$(wc -w <"$file")
+    fi
+    if $chars; then
+      local_chars_count=$(wc -c <"$file")
+    fi
+    if $bytes; then
+      local_bytes_count=$(wc --bytes <"$file")
+    fi
+
+    echo "$local_lines_count $local_words_count $local_chars_count $local_bytes_count" >> results.tmp
+
+    if  [[ $verbose == true ]]; then
+      output="$1: "
+
+      [[ $lines == true ]] && output+="$local_lines_count lines "
+      [[ $words == true ]] && output+="$local_words_count words "
+      [[ $chars == true ]] && output+="$local_chars_count chars "
+      [[ $bytes == true ]] && output+="$local_bytes_count bytes "
+
+      echo "$output"
+    fi
+  fi
+}
 
 # Input parsing
 while [[ "$#" -gt 0 ]]; do
@@ -120,35 +156,29 @@ for item in "${exts[@]}"; do
 done
 printf "\n"
 
+true > results.tmp
+
 for ext in "${exts[@]}"; do
   # echo "trying $ext"
   while IFS= read -r file; do
-    if [ -f "$file" ] && [[ "$file" == *."$ext" ]]; then
-      if $lines; then 
-        lines_c=$(wc -l <"$file")
-        lines_count=$((lines_count + lines_c))
-      fi
-      if $words; then
-        words_c=$(wc -w <"$file")
-        words_count=$((words_count + words_c))
-      fi
-      if $chars; then
-        chars_c=$(wc -c <"$file")
-        chars_count=$((chars_count + chars_c))
-      fi
-      if $bytes; then
-        bytes_c=$(wc --bytes <"$file")
-        bytes_count=$((bytes_count + bytes_c))
-      fi
-      [[ $verbose == true && $lines == true ]] && printf "%s: %d lines\n" "$file" "$lines_count"
-      [[ $verbose == true && $words == true ]] && printf "%s: %d words\n" "$file" "$words_count"
-      [[ $verbose == true && $chars == true ]] && printf "%s: %d chars\n" "$file" "$chars_count"
-      [[ $verbose == true && $bytes == true ]] && printf "%s: %d bytes\n" "$file" "$bytes_count"
-    fi
+    process_file "$file" &
   done < <(find "$dir" -type f)
 done
+
+# Wait for all background jobs to finish
+wait
+
+while read -r line; do
+  read l w c b <<< "$line"
+  lines_count=$((lines_count + l))
+  words_count=$((words_count + w))
+  chars_count=$((chars_count + c))
+  bytes_count=$((bytes_count + b))
+done < results.tmp
 
 [[ $lines == true ]] && echo "Total lines: $lines_count"
 [[ $words == true ]] && echo "Total words: $words_count"
 [[ $chars == true ]] && echo "Total chars: $chars_count"
 [[ $bytes == true ]] && echo "Total bytes: $bytes_count"
+
+rm results.tmp
